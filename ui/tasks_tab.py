@@ -1,23 +1,32 @@
-"""Tasks tab module for Mint Tasks.
+"""Tasks tab module — Modern Material Design 3 Task Cards.
 
-Implements Google Tasks-style interface: active task cards, inline task creator,
-collapsible subtasks, date/time pickers, star/priority toggles, and strike-through completion.
+Floating card layout with soft elevation (QGraphicsDropShadowEffect),
+circular checkboxes, animated task completion, and collapsible subtasks
+with connector lines.
 """
 
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from PyQt6.QtCore import QDate, QTime, Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtCore import (
+    QDate,
+    QEasingCurve,
+    QPropertyAnimation,
+    QSize,
+    Qt,
+    QTime,
+    pyqtSignal,
+)
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QCheckBox,
     QDateEdit,
-    QDateTimeEdit,
     QDialog,
     QDialogButtonBox,
     QFrame,
+    QGraphicsDropShadowEffect,
     QGraphicsOpacityEffect,
     QHBoxLayout,
     QLabel,
@@ -33,62 +42,79 @@ from PyQt6.QtWidgets import (
 )
 
 from database import DatabaseManager
+from theme import DarkPalette, LightPalette, load_config
+
+
+def _make_shadow(theme: str = "dark") -> QGraphicsDropShadowEffect:
+    """Create soft card elevation drop shadow."""
+    shadow = QGraphicsDropShadowEffect()
+    shadow.setBlurRadius(16)
+    shadow.setOffset(0, 4)
+    if theme == "dark":
+        shadow.setColor(QColor(0, 0, 0, 100))
+    else:
+        shadow.setColor(QColor(0, 0, 0, 33))
+    return shadow
 
 
 class SubtaskWidget(QFrame):
-    """Widget representing an individual subtask."""
+    """Individual subtask row within a task card."""
 
     subtask_toggled = pyqtSignal(int, bool)
     subtask_deleted = pyqtSignal(int)
 
-    def __init__(self, subtask_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(self, subtask_data: Dict[str, Any], theme: str = "dark", parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.subtask_data = subtask_data
         self.subtask_id = subtask_data["id"]
-        self.setProperty("class", "subtaskCard")
+        self.theme = theme
+        self.setObjectName("subtaskCard")
         self.init_ui()
 
     def init_ui(self) -> None:
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(8, 4, 8, 4)
+        layout.setContentsMargins(10, 5, 10, 5)
         layout.setSpacing(8)
 
-        # Checkbox
         self.checkbox = QCheckBox()
         self.checkbox.setChecked(bool(self.subtask_data.get("is_completed", 0)))
         self.checkbox.toggled.connect(self._on_toggled)
         layout.addWidget(self.checkbox)
 
-        # Title
         self.title_label = QLabel(self.subtask_data.get("title", ""))
+        self.title_label.setObjectName("taskTitle")
         self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        self._update_text_style()
+        self._update_style()
         layout.addWidget(self.title_label)
 
-        # Delete button
-        self.del_btn = QPushButton("✕")
-        self.del_btn.setObjectName("iconButton")
-        self.del_btn.setToolTip("Delete subtask")
-        self.del_btn.setFixedSize(22, 22)
-        self.del_btn.clicked.connect(lambda: self.subtask_deleted.emit(self.subtask_id))
-        layout.addWidget(self.del_btn)
+        del_btn = QPushButton("✕")
+        del_btn.setObjectName("iconBtn")
+        del_btn.setFixedSize(22, 22)
+        del_btn.setToolTip("Delete subtask")
+        del_btn.clicked.connect(lambda: self.subtask_deleted.emit(self.subtask_id))
+        layout.addWidget(del_btn)
 
-    def _update_text_style(self) -> None:
-        font = self.title_label.font()
-        font.setStrikeOut(self.checkbox.isChecked())
-        self.title_label.setFont(font)
+    def _update_style(self) -> None:
         if self.checkbox.isChecked():
-            self.title_label.setStyleSheet("color: gray;")
+            self.title_label.setObjectName("taskTitleDone")
+            font = self.title_label.font()
+            font.setStrikeOut(True)
+            self.title_label.setFont(font)
         else:
-            self.title_label.setStyleSheet("")
+            self.title_label.setObjectName("taskTitle")
+            font = self.title_label.font()
+            font.setStrikeOut(False)
+            self.title_label.setFont(font)
+        self.title_label.style().unpolish(self.title_label)
+        self.title_label.style().polish(self.title_label)
 
     def _on_toggled(self, checked: bool) -> None:
-        self._update_text_style()
+        self._update_style()
         self.subtask_toggled.emit(self.subtask_id, checked)
 
 
 class TaskCardWidget(QFrame):
-    """Card widget representing a top-level task with nested subtasks."""
+    """Modern floating task card with elevation shadow."""
 
     task_completed = pyqtSignal(int)
     task_updated = pyqtSignal()
@@ -98,148 +124,146 @@ class TaskCardWidget(QFrame):
         self,
         task_data: Dict[str, Any],
         db: DatabaseManager,
+        theme: str = "dark",
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.task_data = task_data
         self.task_id = task_data["id"]
         self.db = db
-        self.setProperty("class", "taskCard")
+        self.theme = theme
+        self.setObjectName("taskCard")
+
+        # Drop shadow (elevation)
+        self.setGraphicsEffect(_make_shadow(theme))
+
         self.init_ui()
 
     def init_ui(self) -> None:
-        self.main_layout = QVBoxLayout(self)
-        self.main_layout.setContentsMargins(12, 10, 12, 10)
-        self.main_layout.setSpacing(6)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(14, 12, 14, 12)
+        outer.setSpacing(8)
 
-        # Top row: Checkbox, Title, Due Badge, Star, Actions Menu
-        top_row = QHBoxLayout()
-        top_row.setSpacing(8)
+        # ── Top row ──────────────────────────────────────────────────────────
+        top = QHBoxLayout()
+        top.setSpacing(8)
 
-        # Checkbox
+        # Circular checkbox
         self.checkbox = QCheckBox()
         self.checkbox.setToolTip("Mark completed")
         self.checkbox.toggled.connect(self._on_complete)
-        top_row.addWidget(self.checkbox)
+        top.addWidget(self.checkbox)
 
-        # Star toggle button
+        # Star
         self.star_btn = QPushButton("★" if self.task_data.get("is_starred") else "☆")
-        self.star_btn.setObjectName("starButton")
+        self.star_btn.setObjectName("starBtn")
         self.star_btn.setProperty("starred", "true" if self.task_data.get("is_starred") else "false")
-        self.star_btn.setFixedSize(26, 26)
-        self.star_btn.setToolTip("Toggle star priority")
+        self.star_btn.setFixedSize(28, 28)
+        self.star_btn.setToolTip("Star priority")
         self.star_btn.clicked.connect(self._toggle_star)
-        top_row.addWidget(self.star_btn)
+        top.addWidget(self.star_btn)
 
-        # Title Label
+        # Title
         self.title_label = QLabel(self.task_data.get("title", ""))
-        font = QFont()
-        font.setPointSize(11)
-        font.setBold(True)
-        self.title_label.setFont(font)
+        self.title_label.setObjectName("taskTitle")
         self.title_label.setWordWrap(True)
         self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        top_row.addWidget(self.title_label)
+        top.addWidget(self.title_label)
 
-        # Due Date Badge
-        self._add_due_badge(top_row)
+        # Due date badge
+        self._add_due_badge(top)
 
         # Edit button
-        self.edit_btn = QPushButton("✎")
-        self.edit_btn.setObjectName("iconButton")
-        self.edit_btn.setFixedSize(26, 26)
-        self.edit_btn.setToolTip("Edit task details")
-        self.edit_btn.clicked.connect(self._open_edit_dialog)
-        top_row.addWidget(self.edit_btn)
+        edit_btn = QPushButton("✎")
+        edit_btn.setObjectName("iconBtn")
+        edit_btn.setFixedSize(28, 28)
+        edit_btn.setToolTip("Edit")
+        edit_btn.clicked.connect(self._open_edit_dialog)
+        top.addWidget(edit_btn)
 
         # Delete button
-        self.delete_btn = QPushButton("🗑")
-        self.delete_btn.setObjectName("iconButton")
-        self.delete_btn.setFixedSize(26, 26)
-        self.delete_btn.setToolTip("Delete task permanently")
-        self.delete_btn.clicked.connect(self._on_delete)
-        top_row.addWidget(self.delete_btn)
+        del_btn = QPushButton("🗑")
+        del_btn.setObjectName("iconBtn")
+        del_btn.setFixedSize(28, 28)
+        del_btn.setToolTip("Delete permanently")
+        del_btn.clicked.connect(self._on_delete)
+        top.addWidget(del_btn)
 
-        self.main_layout.addLayout(top_row)
+        outer.addLayout(top)
 
-        # Notes / Details section (if present)
+        # ── Notes snippet ────────────────────────────────────────────────────
         notes = self.task_data.get("notes", "").strip()
         if notes:
-            self.notes_label = QLabel(notes)
-            self.notes_label.setObjectName("mutedText")
-            self.notes_label.setWordWrap(True)
-            self.notes_label.setContentsMargins(34, 0, 0, 4)
-            self.main_layout.addWidget(self.notes_label)
+            notes_lbl = QLabel(notes)
+            notes_lbl.setObjectName("mutedLabel")
+            notes_lbl.setWordWrap(True)
+            notes_lbl.setContentsMargins(36, 0, 0, 0)
+            outer.addWidget(notes_lbl)
 
-        # Subtasks container
-        self.subtasks_container = QVBoxLayout()
-        self.subtasks_container.setContentsMargins(18, 2, 0, 2)
-        self.subtasks_container.setSpacing(4)
-        self.main_layout.addLayout(self.subtasks_container)
+        # ── Subtasks container ───────────────────────────────────────────────
+        self.subtasks_layout = QVBoxLayout()
+        self.subtasks_layout.setContentsMargins(24, 0, 0, 0)
+        self.subtasks_layout.setSpacing(4)
+        outer.addLayout(self.subtasks_layout)
 
         self._render_subtasks()
 
-        # Add Subtask Inline Bar
-        sub_input_layout = QHBoxLayout()
-        sub_input_layout.setContentsMargins(28, 4, 0, 0)
-        sub_input_layout.setSpacing(6)
+        # ── Inline subtask add bar ───────────────────────────────────────────
+        sub_row = QHBoxLayout()
+        sub_row.setContentsMargins(30, 0, 0, 0)
+        sub_row.setSpacing(6)
 
         self.sub_input = QLineEdit()
-        self.sub_input.setPlaceholderText("+ Add a subtask...")
+        self.sub_input.setPlaceholderText("Add a subtask…")
         self.sub_input.returnPressed.connect(self._add_subtask)
-        sub_input_layout.addWidget(self.sub_input)
+        sub_row.addWidget(self.sub_input)
 
         add_sub_btn = QPushButton("+")
         add_sub_btn.setFixedSize(28, 28)
         add_sub_btn.clicked.connect(self._add_subtask)
-        sub_input_layout.addWidget(add_sub_btn)
+        sub_row.addWidget(add_sub_btn)
 
-        self.main_layout.addLayout(sub_input_layout)
+        outer.addLayout(sub_row)
 
     def _add_due_badge(self, layout: QHBoxLayout) -> None:
         due_date = self.task_data.get("due_date")
-        due_time = self.task_data.get("due_time")
+        due_time = self.task_data.get("due_time") or ""
         if not due_date:
             return
 
-        now_date_str = datetime.now().strftime("%Y-%m-%d")
+        today = datetime.now().strftime("%Y-%m-%d")
         badge = QLabel()
-        badge_text = due_date
-        if due_time:
-            badge_text += f" {due_time}"
+        display = due_date if not due_time else f"{due_date} {due_time}"
 
-        if due_date < now_date_str:
+        if due_date < today:
             badge.setObjectName("badgeOverdue")
-            badge.setText(f"⚠ {badge_text}")
-        elif due_date == now_date_str:
+            badge.setText(f"⚠ {display}")
+        elif due_date == today:
             badge.setObjectName("badgeToday")
-            badge.setText(f"Today {due_time or ''}".strip())
+            badge.setText(f"Today {due_time}".strip())
         else:
             badge.setObjectName("badgeUpcoming")
-            badge.setText(f"📅 {badge_text}")
+            badge.setText(f"📅 {display}")
 
         layout.addWidget(badge)
 
     def _render_subtasks(self) -> None:
-        # Clear existing
-        while self.subtasks_container.count():
-            item = self.subtasks_container.takeAt(0)
+        while self.subtasks_layout.count():
+            item = self.subtasks_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
-        subtasks = self.task_data.get("subtasks", [])
-        for sub in subtasks:
-            sub_widget = SubtaskWidget(sub, self)
-            sub_widget.subtask_toggled.connect(self._on_subtask_toggled)
-            sub_widget.subtask_deleted.connect(self._on_subtask_deleted)
-            self.subtasks_container.addWidget(sub_widget)
+        for sub in self.task_data.get("subtasks", []):
+            sw = SubtaskWidget(sub, self.theme, self)
+            sw.subtask_toggled.connect(self._on_subtask_toggled)
+            sw.subtask_deleted.connect(self._on_subtask_deleted)
+            self.subtasks_layout.addWidget(sw)
 
-    def _on_subtask_toggled(self, subtask_id: int, checked: bool) -> None:
-        self.db.complete_subtask(subtask_id, checked)
+    def _on_subtask_toggled(self, sid: int, checked: bool) -> None:
+        self.db.complete_subtask(sid, checked)
 
-    def _on_subtask_deleted(self, subtask_id: int) -> None:
-        self.db.delete_task_permanently(subtask_id)
-        # Refresh local data
+    def _on_subtask_deleted(self, sid: int) -> None:
+        self.db.delete_task_permanently(sid)
         self.task_data["subtasks"] = self.db.get_subtasks(self.task_id)
         self._render_subtasks()
 
@@ -253,18 +277,34 @@ class TaskCardWidget(QFrame):
         self._render_subtasks()
 
     def _toggle_star(self) -> None:
-        current = bool(self.task_data.get("is_starred", 0))
-        new_state = not current
+        new_state = not bool(self.task_data.get("is_starred", 0))
         self.db.update_task(self.task_id, is_starred=new_state)
         self.task_updated.emit()
 
     def _on_complete(self, checked: bool) -> None:
-        if checked:
-            font = self.title_label.font()
-            font.setStrikeOut(True)
-            self.title_label.setFont(font)
+        if not checked:
+            return
+        # Strike-through then animated fade-out
+        font = self.title_label.font()
+        font.setStrikeOut(True)
+        self.title_label.setFont(font)
+        self.title_label.setObjectName("taskTitleDone")
+
+        effect = QGraphicsOpacityEffect(self)
+        self.setGraphicsEffect(effect)
+
+        anim = QPropertyAnimation(effect, b"opacity", self)
+        anim.setDuration(320)
+        anim.setStartValue(1.0)
+        anim.setEndValue(0.0)
+        anim.setEasingCurve(QEasingCurve.Type.InCubic)
+
+        def _after_fade():
             self.db.complete_task(self.task_id, True)
             self.task_completed.emit(self.task_id)
+
+        anim.finished.connect(_after_fade)
+        anim.start()
 
     def _on_delete(self) -> None:
         confirm = QMessageBox.question(
@@ -278,9 +318,9 @@ class TaskCardWidget(QFrame):
             self.task_deleted.emit(self.task_id)
 
     def _open_edit_dialog(self) -> None:
-        dialog = TaskEditDialog(self.task_data, self)
-        if dialog.exec() == QDialog.DialogCode.Accepted:
-            title, notes, due_date, due_time = dialog.get_values()
+        dlg = TaskEditDialog(self.task_data, self.theme, self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            title, notes, due_date, due_time = dlg.get_values()
             self.db.update_task(
                 self.task_id,
                 title=title,
@@ -292,71 +332,70 @@ class TaskCardWidget(QFrame):
 
 
 class TaskEditDialog(QDialog):
-    """Dialog for editing task title, notes, and due date/time."""
+    """Modern edit dialog with flat inputs."""
 
-    def __init__(self, task_data: Dict[str, Any], parent: Optional[QWidget] = None) -> None:
+    def __init__(
+        self,
+        task_data: Dict[str, Any],
+        theme: str = "dark",
+        parent: Optional[QWidget] = None,
+    ) -> None:
         super().__init__(parent)
         self.task_data = task_data
         self.setWindowTitle("Edit Task")
-        self.setMinimumWidth(380)
+        self.setMinimumWidth(420)
         self.init_ui()
 
     def init_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setSpacing(10)
+        layout.setSpacing(12)
+        layout.setContentsMargins(20, 20, 20, 20)
 
-        # Title
-        layout.addWidget(QLabel("Title:"))
+        lbl = QLabel("Title")
+        lbl.setObjectName("mutedLabel")
+        layout.addWidget(lbl)
+
         self.title_edit = QLineEdit(self.task_data.get("title", ""))
         layout.addWidget(self.title_edit)
 
-        # Notes
-        layout.addWidget(QLabel("Details / Notes:"))
+        lbl2 = QLabel("Details / Notes")
+        lbl2.setObjectName("mutedLabel")
+        layout.addWidget(lbl2)
+
         self.notes_edit = QTextEdit(self.task_data.get("notes", ""))
-        self.notes_edit.setMaximumHeight(90)
+        self.notes_edit.setMaximumHeight(80)
         layout.addWidget(self.notes_edit)
 
-        # Due Date & Time
-        due_row = QHBoxLayout()
+        # Due date / time
         self.has_due_cb = QCheckBox("Set Due Date & Time")
-        current_due_date = self.task_data.get("due_date")
-        current_due_time = self.task_data.get("due_time")
-        self.has_due_cb.setChecked(bool(current_due_date))
-        due_row.addWidget(self.has_due_cb)
-        layout.addLayout(due_row)
+        cd = self.task_data.get("due_date")
+        ct = self.task_data.get("due_time")
+        self.has_due_cb.setChecked(bool(cd))
+        layout.addWidget(self.has_due_cb)
 
-        picker_row = QHBoxLayout()
+        pickers = QHBoxLayout()
+        pickers.setSpacing(8)
+
         self.date_picker = QDateEdit()
         self.date_picker.setCalendarPopup(True)
-        if current_due_date:
-            try:
-                d = QDate.fromString(current_due_date, "yyyy-MM-dd")
-                self.date_picker.setDate(d)
-            except Exception:
-                self.date_picker.setDate(QDate.currentDate())
-        else:
-            self.date_picker.setDate(QDate.currentDate())
+        self.date_picker.setDate(
+            QDate.fromString(cd, "yyyy-MM-dd") if cd else QDate.currentDate()
+        )
+        self.date_picker.setEnabled(bool(cd))
 
         self.time_picker = QTimeEdit()
-        if current_due_time:
-            try:
-                t = QTime.fromString(current_due_time, "HH:mm")
-                self.time_picker.setTime(t)
-            except Exception:
-                self.time_picker.setTime(QTime.currentTime())
-        else:
-            self.time_picker.setTime(QTime(12, 0))
+        self.time_picker.setTime(
+            QTime.fromString(ct, "HH:mm") if ct else QTime(12, 0)
+        )
+        self.time_picker.setEnabled(bool(cd))
 
-        self.date_picker.setEnabled(self.has_due_cb.isChecked())
-        self.time_picker.setEnabled(self.has_due_cb.isChecked())
         self.has_due_cb.toggled.connect(self.date_picker.setEnabled)
         self.has_due_cb.toggled.connect(self.time_picker.setEnabled)
 
-        picker_row.addWidget(self.date_picker)
-        picker_row.addWidget(self.time_picker)
-        layout.addLayout(picker_row)
+        pickers.addWidget(self.date_picker)
+        pickers.addWidget(self.time_picker)
+        layout.addLayout(pickers)
 
-        # Buttons
         buttons = QDialogButtonBox(
             QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel
         )
@@ -364,7 +403,7 @@ class TaskEditDialog(QDialog):
         buttons.rejected.connect(self.reject)
         layout.addWidget(buttons)
 
-    def get_values(self) -> tuple[str, str, Optional[str], Optional[str]]:
+    def get_values(self) -> tuple:
         title = self.title_edit.text().strip()
         notes = self.notes_edit.toPlainText().strip()
         if self.has_due_cb.isChecked():
@@ -377,95 +416,99 @@ class TaskEditDialog(QDialog):
 
 
 class TasksTab(QWidget):
-    """Main Tasks Tab containing the quick add bar, task filter, and scrollable cards."""
+    """Tasks view with modern floating cards and quick-add bar."""
 
     tasks_changed = pyqtSignal()
 
     def __init__(self, db: DatabaseManager, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.db = db
+        self.theme = load_config().get("theme", "dark")
         self.init_ui()
         self.refresh_tasks()
 
     def init_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(10)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        # Top Quick-Add Bar
-        add_frame = QFrame()
-        add_frame.setProperty("class", "taskCard")
-        add_layout = QVBoxLayout(add_frame)
-        add_layout.setContentsMargins(10, 10, 10, 10)
-        add_layout.setSpacing(8)
+        # ── Quick-Add Card ───────────────────────────────────────────────────
+        add_card = QFrame()
+        add_card.setObjectName("addTaskBar")
+        add_card.setContentsMargins(0, 0, 0, 0)
+        add_inner = QVBoxLayout(add_card)
+        add_inner.setContentsMargins(14, 10, 14, 10)
+        add_inner.setSpacing(8)
 
-        # Title & Add button row
+        # Title row
         title_row = QHBoxLayout()
         title_row.setSpacing(8)
 
         self.quick_star_btn = QPushButton("☆")
-        self.quick_star_btn.setObjectName("starButton")
-        self.quick_star_btn.setFixedSize(26, 26)
-        self.quick_star_btn.setToolTip("Mark task as starred")
+        self.quick_star_btn.setObjectName("starBtn")
+        self.quick_star_btn.setFixedSize(28, 28)
         self.quick_star_btn.clicked.connect(self._toggle_quick_star)
         self.is_quick_starred = False
         title_row.addWidget(self.quick_star_btn)
 
         self.quick_title_input = QLineEdit()
-        self.quick_title_input.setPlaceholderText("Add a task...")
+        self.quick_title_input.setPlaceholderText("Add a task…")
         self.quick_title_input.returnPressed.connect(self.add_task_action)
         title_row.addWidget(self.quick_title_input)
 
         self.add_btn = QPushButton("Add")
-        self.add_btn.setObjectName("accentButton")
-        self.add_btn.setFixedWidth(64)
+        self.add_btn.setObjectName("primaryBtn")
+        self.add_btn.setFixedWidth(70)
+        self.add_btn.setFixedHeight(34)
         self.add_btn.clicked.connect(self.add_task_action)
         title_row.addWidget(self.add_btn)
+        add_inner.addLayout(title_row)
 
-        add_layout.addLayout(title_row)
-
-        # Collapsible Details & Date row
-        self.details_row = QHBoxLayout()
-        self.details_row.setSpacing(8)
+        # Details / Date row
+        detail_row = QHBoxLayout()
+        detail_row.setSpacing(8)
 
         self.quick_notes_input = QLineEdit()
-        self.quick_notes_input.setPlaceholderText("Details / Notes (optional)")
-        self.quick_notes_input.returnPressed.connect(self.add_task_action)
-        self.details_row.addWidget(self.quick_notes_input)
+        self.quick_notes_input.setPlaceholderText("Details (optional)")
+        detail_row.addWidget(self.quick_notes_input)
 
         self.due_check = QCheckBox("Due:")
-        self.details_row.addWidget(self.due_check)
+        detail_row.addWidget(self.due_check)
 
         self.quick_date_picker = QDateEdit()
         self.quick_date_picker.setCalendarPopup(True)
         self.quick_date_picker.setDate(QDate.currentDate())
         self.quick_date_picker.setEnabled(False)
-        self.details_row.addWidget(self.quick_date_picker)
+        self.quick_date_picker.setFixedWidth(105)
+        detail_row.addWidget(self.quick_date_picker)
 
         self.quick_time_picker = QTimeEdit()
         self.quick_time_picker.setTime(QTime(12, 0))
         self.quick_time_picker.setEnabled(False)
-        self.details_row.addWidget(self.quick_time_picker)
+        self.quick_time_picker.setFixedWidth(80)
+        detail_row.addWidget(self.quick_time_picker)
 
         self.due_check.toggled.connect(self.quick_date_picker.setEnabled)
         self.due_check.toggled.connect(self.quick_time_picker.setEnabled)
+        add_inner.addLayout(detail_row)
 
-        add_layout.addLayout(self.details_row)
-        main_layout.addWidget(add_frame)
+        layout.addWidget(add_card)
+        layout.addSpacing(4)
 
-        # Scroll Area for Task Cards
+        # ── Task Cards Scroll Area ───────────────────────────────────────────
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        self.tasks_container = QWidget()
-        self.tasks_layout = QVBoxLayout(self.tasks_container)
-        self.tasks_layout.setContentsMargins(0, 4, 0, 4)
-        self.tasks_layout.setSpacing(8)
-        self.tasks_layout.addStretch()
+        self.cards_widget = QWidget()
+        self.cards_widget.setStyleSheet("background: transparent;")
+        self.cards_layout = QVBoxLayout(self.cards_widget)
+        self.cards_layout.setContentsMargins(0, 8, 0, 16)
+        self.cards_layout.setSpacing(6)
+        self.cards_layout.addStretch()
 
-        self.scroll.setWidget(self.tasks_container)
-        main_layout.addWidget(self.scroll)
+        self.scroll.setWidget(self.cards_widget)
+        layout.addWidget(self.scroll, stretch=1)
 
     def _toggle_quick_star(self) -> None:
         self.is_quick_starred = not self.is_quick_starred
@@ -479,22 +522,19 @@ class TasksTab(QWidget):
         if not title:
             return
 
-        notes = self.quick_notes_input.text().strip()
-        due_date = None
-        due_time = None
+        due_date = due_time = None
         if self.due_check.isChecked():
             due_date = self.quick_date_picker.date().toString("yyyy-MM-dd")
             due_time = self.quick_time_picker.time().toString("HH:mm")
 
         self.db.add_task(
             title=title,
-            notes=notes,
+            notes=self.quick_notes_input.text().strip(),
             due_date=due_date,
             due_time=due_time,
             is_starred=self.is_quick_starred,
         )
 
-        # Reset inputs
         self.quick_title_input.clear()
         self.quick_notes_input.clear()
         self.due_check.setChecked(False)
@@ -508,30 +548,31 @@ class TasksTab(QWidget):
         self.tasks_changed.emit()
 
     def refresh_tasks(self) -> None:
-        """Reload all active tasks from database and reconstruct task cards."""
-        # Clear existing task widgets
-        while self.tasks_layout.count():
-            item = self.tasks_layout.takeAt(0)
+        # Update theme from config each refresh (handles toggles)
+        self.theme = load_config().get("theme", "dark")
+
+        while self.cards_layout.count():
+            item = self.cards_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         active_tasks = self.db.get_active_tasks()
 
         if not active_tasks:
-            empty_label = QLabel("All tasks completed! Enjoy your day 🎉")
-            empty_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_label.setObjectName("mutedText")
-            empty_label.setContentsMargins(0, 40, 0, 40)
-            self.tasks_layout.addWidget(empty_label)
+            empty = QLabel("No active tasks — enjoy your day! 🎉")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setObjectName("mutedLabel")
+            empty.setContentsMargins(0, 48, 0, 48)
+            self.cards_layout.addWidget(empty)
         else:
             for task in active_tasks:
-                card = TaskCardWidget(task, self.db, self)
+                card = TaskCardWidget(task, self.db, self.theme, self)
                 card.task_completed.connect(self._on_task_completed)
                 card.task_updated.connect(self._on_task_updated)
                 card.task_deleted.connect(self._on_task_deleted)
-                self.tasks_layout.addWidget(card)
+                self.cards_layout.addWidget(card)
 
-        self.tasks_layout.addStretch()
+        self.cards_layout.addStretch()
 
     def _on_task_completed(self, task_id: int) -> None:
         self.refresh_tasks()

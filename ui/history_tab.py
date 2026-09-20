@@ -1,7 +1,6 @@
-"""History tab module for Mint Tasks.
+"""History tab module — Modern Completed Tasks Archive.
 
-Displays archived/completed tasks grouped by completion date.
-Provides Restore, Hard Purge (Permanent Delete), Clear All History, and Factory Reset actions.
+Floating card layout, date-grouped sections, Restore & Hard Purge actions.
 """
 
 from __future__ import annotations
@@ -10,9 +9,10 @@ from datetime import datetime
 from typing import Any, Dict, List, Optional
 
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QFont
+from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtWidgets import (
     QFrame,
+    QGraphicsDropShadowEffect,
     QHBoxLayout,
     QLabel,
     QMessageBox,
@@ -24,10 +24,19 @@ from PyQt6.QtWidgets import (
 )
 
 from database import DatabaseManager
+from theme import load_config
+
+
+def _make_shadow(theme: str = "dark") -> QGraphicsDropShadowEffect:
+    shadow = QGraphicsDropShadowEffect()
+    shadow.setBlurRadius(14)
+    shadow.setOffset(0, 3)
+    shadow.setColor(QColor(0, 0, 0, 80 if theme == "dark" else 30))
+    return shadow
 
 
 class CompletedTaskCard(QFrame):
-    """Card widget representing a completed task in the history archive."""
+    """Floating card for a completed task in history."""
 
     restored = pyqtSignal(int)
     deleted_permanently = pyqtSignal(int)
@@ -36,36 +45,36 @@ class CompletedTaskCard(QFrame):
         self,
         task_data: Dict[str, Any],
         db: DatabaseManager,
+        theme: str = "dark",
         parent: Optional[QWidget] = None,
     ) -> None:
         super().__init__(parent)
         self.task_data = task_data
         self.task_id = task_data["id"]
         self.db = db
-        self.setProperty("class", "taskCard")
+        self.setObjectName("taskCard")
+        self.setGraphicsEffect(_make_shadow(theme))
         self.init_ui()
 
     def init_ui(self) -> None:
         layout = QVBoxLayout(self)
-        layout.setContentsMargins(12, 10, 12, 10)
+        layout.setContentsMargins(14, 11, 14, 11)
         layout.setSpacing(6)
 
-        # Header Row: Strike-through Title, Completed Badge, Restore & Purge buttons
-        header_row = QHBoxLayout()
-        header_row.setSpacing(8)
+        # Top row: title + badge + restore + purge
+        top = QHBoxLayout()
+        top.setSpacing(8)
 
-        # Title with strike-through
         self.title_label = QLabel(self.task_data.get("title", ""))
-        font = QFont()
-        font.setPointSize(11)
+        font = self.title_label.font()
         font.setStrikeOut(True)
         self.title_label.setFont(font)
-        self.title_label.setStyleSheet("color: gray;")
+        self.title_label.setObjectName("taskTitleDone")
         self.title_label.setWordWrap(True)
         self.title_label.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Preferred)
-        header_row.addWidget(self.title_label)
+        top.addWidget(self.title_label)
 
-        # Completed time badge
+        # Completed-at badge
         completed_at = self.task_data.get("completed_at", "")
         if completed_at:
             try:
@@ -73,54 +82,56 @@ class CompletedTaskCard(QFrame):
                 time_str = dt.strftime("%b %d, %H:%M")
             except Exception:
                 time_str = completed_at[:16]
-            time_badge = QLabel(f"✓ {time_str}")
-            time_badge.setObjectName("badgeUpcoming")
-            header_row.addWidget(time_badge)
+            badge = QLabel(f"✓  {time_str}")
+            badge.setObjectName("badgeUpcoming")
+            top.addWidget(badge)
 
-        # Restore button
-        restore_btn = QPushButton("↩ Restore")
-        restore_btn.setToolTip("Restore task back to active list")
+        # Restore
+        restore_btn = QPushButton("↩  Restore")
+        restore_btn.setFixedHeight(30)
         restore_btn.clicked.connect(self._on_restore)
-        header_row.addWidget(restore_btn)
+        top.addWidget(restore_btn)
 
-        # Permanent Delete (Hard Purge) button
-        delete_btn = QPushButton("🗑 Purge")
-        delete_btn.setObjectName("dangerButton")
-        delete_btn.setToolTip("Permanently delete from database (hard purge)")
-        delete_btn.clicked.connect(self._on_permanent_delete)
-        header_row.addWidget(delete_btn)
+        # Hard Purge
+        purge_btn = QPushButton("🗑  Purge")
+        purge_btn.setObjectName("dangerBtn")
+        purge_btn.setFixedHeight(30)
+        purge_btn.setToolTip("Permanently DELETE from SQLite (cannot be undone)")
+        purge_btn.clicked.connect(self._on_permanent_delete)
+        top.addWidget(purge_btn)
 
-        layout.addLayout(header_row)
+        layout.addLayout(top)
 
-        # Notes
+        # Notes snippet
         notes = self.task_data.get("notes", "").strip()
         if notes:
             notes_lbl = QLabel(notes)
-            notes_lbl.setObjectName("mutedText")
+            notes_lbl.setObjectName("mutedLabel")
             notes_lbl.setWordWrap(True)
-            notes_lbl.setContentsMargins(12, 0, 0, 0)
+            notes_lbl.setContentsMargins(8, 0, 0, 0)
             layout.addWidget(notes_lbl)
 
-        # Subtasks summary if any
+        # Subtasks summary
         subtasks = self.task_data.get("subtasks", [])
         if subtasks:
-            sub_summary = QLabel(f"Subtasks ({len(subtasks)} completed): " + ", ".join(s.get("title", "") for s in subtasks))
-            sub_summary.setObjectName("mutedText")
-            sub_summary.setStyleSheet("font-size: 11px; color: gray;")
-            sub_summary.setWordWrap(True)
-            sub_summary.setContentsMargins(12, 2, 0, 0)
-            layout.addWidget(sub_summary)
+            titles = ", ".join(s.get("title", "") for s in subtasks[:4])
+            if len(subtasks) > 4:
+                titles += f" +{len(subtasks) - 4} more"
+            sub_lbl = QLabel(f"Subtasks: {titles}")
+            sub_lbl.setObjectName("mutedLabel")
+            sub_lbl.setWordWrap(True)
+            sub_lbl.setContentsMargins(8, 0, 0, 0)
+            layout.addWidget(sub_lbl)
 
     def _on_restore(self) -> None:
         self.db.restore_task(self.task_id)
         self.restored.emit(self.task_id)
 
     def _on_permanent_delete(self) -> None:
-        # Prompt for confirmation
         confirm = QMessageBox.question(
             self,
             "Permanent Hard Purge",
-            f"Are you sure you want to permanently delete '{self.task_data.get('title')}'?\nThis will completely purge the record from SQLite and cannot be undone.",
+            f"Permanently DELETE '{self.task_data.get('title')}' from SQLite?\nThis cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
@@ -129,7 +140,7 @@ class CompletedTaskCard(QFrame):
 
 
 class HistoryTab(QWidget):
-    """History tab containing completed tasks, grouping, Clear All History, and Factory Reset."""
+    """History view: completed tasks grouped by date with batch actions."""
 
     history_changed = pyqtSignal()
     factory_reset_triggered = pyqtSignal()
@@ -137,112 +148,108 @@ class HistoryTab(QWidget):
     def __init__(self, db: DatabaseManager, parent: Optional[QWidget] = None) -> None:
         super().__init__(parent)
         self.db = db
+        self.theme = load_config().get("theme", "dark")
         self.init_ui()
         self.refresh_history()
 
     def init_ui(self) -> None:
-        main_layout = QVBoxLayout(self)
-        main_layout.setContentsMargins(12, 12, 12, 12)
-        main_layout.setSpacing(10)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
 
-        # Top Action Bar
-        top_bar = QHBoxLayout()
-        top_bar.setSpacing(8)
+        # ── Top Action Bar ───────────────────────────────────────────────────
+        action_bar = QFrame()
+        action_bar.setObjectName("addTaskBar")
+        action_bar.setContentsMargins(0, 0, 0, 0)
+        action_bar.setFixedHeight(52)
+        bar_layout = QHBoxLayout(action_bar)
+        bar_layout.setContentsMargins(14, 0, 14, 0)
+        bar_layout.setSpacing(10)
 
-        self.summary_label = QLabel("Completed Tasks")
-        font = QFont()
-        font.setPointSize(12)
-        font.setBold(True)
-        self.summary_label.setFont(font)
-        top_bar.addWidget(self.summary_label)
+        self.count_label = QLabel("Completed Tasks")
+        self.count_label.setObjectName("taskTitle")
+        bar_layout.addWidget(self.count_label)
+        bar_layout.addStretch()
 
-        top_bar.addStretch()
+        self.clear_btn = QPushButton("Clear All")
+        self.clear_btn.setObjectName("dangerBtn")
+        self.clear_btn.setFixedHeight(30)
+        self.clear_btn.clicked.connect(self._clear_all_history)
+        bar_layout.addWidget(self.clear_btn)
 
-        # Clear All History button
-        self.clear_all_btn = QPushButton("Clear All History")
-        self.clear_all_btn.setObjectName("dangerButton")
-        self.clear_all_btn.setToolTip("Batch purge all completed tasks")
-        self.clear_all_btn.clicked.connect(self._clear_all_history)
-        top_bar.addWidget(self.clear_all_btn)
+        self.reset_btn = QPushButton("Factory Reset")
+        self.reset_btn.setObjectName("dangerBtn")
+        self.reset_btn.setFixedHeight(30)
+        self.reset_btn.clicked.connect(self._factory_reset)
+        bar_layout.addWidget(self.reset_btn)
 
-        # Factory Reset button
-        self.factory_reset_btn = QPushButton("Factory Reset")
-        self.factory_reset_btn.setObjectName("dangerButton")
-        self.factory_reset_btn.setToolTip("Wipe database files and reset to empty state")
-        self.factory_reset_btn.clicked.connect(self._factory_reset)
-        top_bar.addWidget(self.factory_reset_btn)
+        layout.addWidget(action_bar)
+        layout.addSpacing(4)
 
-        main_layout.addLayout(top_bar)
-
-        # Scroll Area for history tasks
+        # ── Scrollable history list ──────────────────────────────────────────
         self.scroll = QScrollArea()
         self.scroll.setWidgetResizable(True)
         self.scroll.setFrameShape(QFrame.Shape.NoFrame)
 
-        self.history_container = QWidget()
-        self.history_layout = QVBoxLayout(self.history_container)
-        self.history_layout.setContentsMargins(0, 4, 0, 4)
-        self.history_layout.setSpacing(8)
-        self.history_layout.addStretch()
+        self.list_widget = QWidget()
+        self.list_widget.setStyleSheet("background: transparent;")
+        self.list_layout = QVBoxLayout(self.list_widget)
+        self.list_layout.setContentsMargins(0, 8, 0, 16)
+        self.list_layout.setSpacing(6)
+        self.list_layout.addStretch()
 
-        self.scroll.setWidget(self.history_container)
-        main_layout.addWidget(self.scroll)
+        self.scroll.setWidget(self.list_widget)
+        layout.addWidget(self.scroll, stretch=1)
 
     def refresh_history(self) -> None:
-        """Reload completed tasks from database and group them by date."""
-        while self.history_layout.count():
-            item = self.history_layout.takeAt(0)
+        self.theme = load_config().get("theme", "dark")
+
+        while self.list_layout.count():
+            item = self.list_layout.takeAt(0)
             if item.widget():
                 item.widget().deleteLater()
 
         tasks = self.db.get_history_tasks()
         count = len(tasks)
-        self.summary_label.setText(f"Completed Tasks ({count})")
-        self.clear_all_btn.setEnabled(count > 0)
+        self.count_label.setText(f"Completed Tasks  ({count})")
+        self.clear_btn.setEnabled(count > 0)
 
         if not tasks:
-            empty_lbl = QLabel("No completed tasks in history.")
-            empty_lbl.setAlignment(Qt.AlignmentFlag.AlignCenter)
-            empty_lbl.setObjectName("mutedText")
-            empty_lbl.setContentsMargins(0, 40, 0, 40)
-            self.history_layout.addWidget(empty_lbl)
+            empty = QLabel("No completed tasks in history.")
+            empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
+            empty.setObjectName("mutedLabel")
+            empty.setContentsMargins(0, 48, 0, 48)
+            self.list_layout.addWidget(empty)
         else:
-            # Group tasks by date
             today_str = datetime.now().strftime("%Y-%m-%d")
             grouped: Dict[str, List[Dict[str, Any]]] = {}
 
             for t in tasks:
-                completed_at = t.get("completed_at")
-                if completed_at:
-                    date_key = completed_at[:10]
-                else:
-                    date_key = "Earlier"
-                grouped.setdefault(date_key, []).append(t)
+                ca = t.get("completed_at", "")
+                key = ca[:10] if ca else "Earlier"
+                grouped.setdefault(key, []).append(t)
 
-            for date_key, task_group in grouped.items():
+            for date_key, group in grouped.items():
                 # Section header
-                header_title = "Today" if date_key == today_str else date_key
-                section_lbl = QLabel(header_title)
-                section_font = QFont()
-                section_font.setBold(True)
-                section_lbl.setFont(section_font)
-                section_lbl.setObjectName("mutedText")
-                section_lbl.setContentsMargins(4, 8, 4, 2)
-                self.history_layout.addWidget(section_lbl)
+                display = "Today" if date_key == today_str else date_key
+                hdr = QLabel(display.upper())
+                hdr.setObjectName("sectionHeader")
+                hdr.setContentsMargins(14, 10, 0, 4)
+                self.list_layout.addWidget(hdr)
 
-                for t in task_group:
-                    card = CompletedTaskCard(t, self.db, self)
-                    card.restored.connect(self._on_item_restored)
-                    card.deleted_permanently.connect(self._on_item_purged)
-                    self.history_layout.addWidget(card)
+                for t in group:
+                    card = CompletedTaskCard(t, self.db, self.theme, self)
+                    card.restored.connect(self._on_restored)
+                    card.deleted_permanently.connect(self._on_purged)
+                    self.list_layout.addWidget(card)
 
-        self.history_layout.addStretch()
+        self.list_layout.addStretch()
 
-    def _on_item_restored(self, task_id: int) -> None:
+    def _on_restored(self, task_id: int) -> None:
         self.refresh_history()
         self.history_changed.emit()
 
-    def _on_item_purged(self, task_id: int) -> None:
+    def _on_purged(self, task_id: int) -> None:
         self.refresh_history()
         self.history_changed.emit()
 
@@ -250,7 +257,7 @@ class HistoryTab(QWidget):
         confirm = QMessageBox.question(
             self,
             "Clear All History",
-            "Are you sure you want to permanently delete all completed tasks?\nThis hard purge cannot be undone.",
+            "Permanently delete all completed tasks? This hard purge cannot be undone.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
@@ -261,8 +268,8 @@ class HistoryTab(QWidget):
     def _factory_reset(self) -> None:
         confirm = QMessageBox.warning(
             self,
-            "Factory Reset Warning",
-            "Factory reset will wipe all database files and completely erase all tasks, subtasks, and history.\n\nAre you absolutely sure you want to proceed?",
+            "Factory Reset",
+            "Wipe ALL database files and erase every task, subtask, and history record?\n\nThis is irreversible.",
             QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         )
         if confirm == QMessageBox.StandardButton.Yes:
@@ -270,8 +277,4 @@ class HistoryTab(QWidget):
             self.refresh_history()
             self.factory_reset_triggered.emit()
             self.history_changed.emit()
-            QMessageBox.information(
-                self,
-                "Reset Complete",
-                "Application database has been reset to an empty out-of-the-box state.",
-            )
+            QMessageBox.information(self, "Reset Complete", "Database has been reset to empty state.")

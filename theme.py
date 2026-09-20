@@ -1,7 +1,8 @@
-"""Theme and styling module for Mint Tasks.
+"""Theme module for Mint Tasks — Modern Visual System.
 
-Provides custom QSS stylesheets for Dark and Light modes adhering to Google Tasks
-minimalist aesthetics, along with XDG-compliant configuration persistence.
+Implements Material Design 3 inspired styling: vertical sidebar navigation,
+floating cards with soft elevation, Mint Green accent palette,
+smooth fade transitions, and modern typography hierarchy.
 """
 
 from __future__ import annotations
@@ -10,28 +11,26 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict
+
 from database import ensure_secure_dir, ensure_secure_file, get_xdg_config_dir
 
 
 def get_config_file_path() -> Path:
-    """Return path to config.json in XDG Config Directory."""
     return get_xdg_config_dir() / "config.json"
 
 
 def load_config() -> Dict[str, Any]:
-    """Load user preferences from config.json."""
     config_file = get_config_file_path()
     default_config = {
         "theme": "dark",
         "sound_alerts": True,
         "minimize_to_tray": True,
-        "window_width": 850,
-        "window_height": 650,
+        "window_width": 960,
+        "window_height": 680,
     }
     if not config_file.exists():
         save_config(default_config)
         return default_config
-
     try:
         with open(config_file, "r", encoding="utf-8") as f:
             data = json.load(f)
@@ -42,12 +41,10 @@ def load_config() -> Dict[str, Any]:
 
 
 def save_config(config: Dict[str, Any]) -> None:
-    """Save user preferences to config.json securely."""
     config_dir = get_xdg_config_dir()
     config_file = get_config_file_path()
     ensure_secure_dir(config_dir)
     ensure_secure_file(config_file)
-
     try:
         with open(config_file, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=2)
@@ -56,338 +53,594 @@ def save_config(config: Dict[str, Any]) -> None:
         pass
 
 
-class ColorPalette:
-    """Color token constants for Dark and Light themes."""
+# ---------------------------------------------------------------------------
+# Color Palettes
+# ---------------------------------------------------------------------------
 
-    # Dark Mode (Catppuccin/Google Tasks hybrid dark)
-    DARK_BG = "#1e1e2e"
-    DARK_SURFACE = "#2a2b3d"
-    DARK_SURFACE_HOVER = "#36384f"
-    DARK_SURFACE_ACTIVE = "#3e405a"
-    DARK_TEXT = "#cdd6f4"
-    DARK_TEXT_MUTED = "#a6adc8"
-    DARK_BORDER = "#313244"
-    DARK_ACCENT = "#89b4fa"
-    DARK_ACCENT_HOVER = "#b4befe"
-    DARK_DANGER = "#f38ba8"
-    DARK_SUCCESS = "#a6e3a1"
-    DARK_WARNING = "#f9e2af"
-    DARK_STAR = "#f9e2af"
+class DarkPalette:
+    PRIMARY          = "#82E0AA"   # Desaturated Mint Green
+    PRIMARY_CONTAINER= "#1B4F37"   # Deep accent bg for active items
+    BG               = "#1E1F22"   # True dark gray background
+    SURFACE          = "#2B2D31"   # Elevated cards / components
+    SURFACE_VAR      = "#313338"   # Input fields / secondary bg
+    SURFACE_HOVER    = "#36383F"
+    SURFACE_ACTIVE   = "#404249"
+    TEXT             = "#E3E5E8"   # Soft near-white
+    TEXT_SECONDARY   = "#A9ABB0"   # Muted subtitle
+    BORDER           = "#3A3C42"
+    STAR             = "#F9E2AF"
+    DANGER           = "#F28B82"
+    SUCCESS          = "#82E0AA"
+    WARNING          = "#F9E2AF"
+    SHADOW_COLOR     = "rgba(0,0,0,0.4)"
 
-    # Light Mode (Clean Google Tasks light)
-    LIGHT_BG = "#f8f9fa"
-    LIGHT_SURFACE = "#ffffff"
-    LIGHT_SURFACE_HOVER = "#f1f3f5"
-    LIGHT_SURFACE_ACTIVE = "#e9ecef"
-    LIGHT_TEXT = "#212529"
-    LIGHT_TEXT_MUTED = "#6c757d"
-    LIGHT_BORDER = "#dee2e6"
-    LIGHT_ACCENT = "#0d6efd"
-    LIGHT_ACCENT_HOVER = "#0b5ed7"
-    LIGHT_DANGER = "#dc3545"
-    LIGHT_SUCCESS = "#198754"
-    LIGHT_WARNING = "#fd7e14"
-    LIGHT_STAR = "#f59f00"
+
+class LightPalette:
+    PRIMARY          = "#00C853"   # Vibrant Mint Green
+    PRIMARY_CONTAINER= "#E0F7EB"   # Soft accent bg for active items
+    BG               = "#F8F9FA"   # Clean light gray background
+    SURFACE          = "#FFFFFF"   # Main cards / component backgrounds
+    SURFACE_VAR      = "#F1F3F4"   # Input fields / secondary bg
+    SURFACE_HOVER    = "#E8F0FE"
+    SURFACE_ACTIVE   = "#D2E3FC"
+    TEXT             = "#212121"   # High contrast charcoal
+    TEXT_SECONDARY   = "#5F6368"   # Muted subtitle
+    BORDER           = "#E0E0E0"
+    STAR             = "#F59F00"
+    DANGER           = "#D93025"
+    SUCCESS          = "#00C853"
+    WARNING          = "#F59F00"
+    SHADOW_COLOR     = "rgba(0,0,0,0.13)"
 
 
 def get_stylesheet(theme: str = "dark") -> str:
-    """Generate complete application stylesheet for the given theme."""
-    is_dark = theme.lower() == "dark"
+    """Generate the full Material Design 3-inspired QSS stylesheet."""
+    D = DarkPalette if theme == "dark" else LightPalette
 
-    bg = ColorPalette.DARK_BG if is_dark else ColorPalette.LIGHT_BG
-    surface = ColorPalette.DARK_SURFACE if is_dark else ColorPalette.LIGHT_SURFACE
-    surface_hover = ColorPalette.DARK_SURFACE_HOVER if is_dark else ColorPalette.LIGHT_SURFACE_HOVER
-    surface_active = ColorPalette.DARK_SURFACE_ACTIVE if is_dark else ColorPalette.LIGHT_SURFACE_ACTIVE
-    text = ColorPalette.DARK_TEXT if is_dark else ColorPalette.LIGHT_TEXT
-    text_muted = ColorPalette.DARK_TEXT_MUTED if is_dark else ColorPalette.LIGHT_TEXT_MUTED
-    border = ColorPalette.DARK_BORDER if is_dark else ColorPalette.LIGHT_BORDER
-    accent = ColorPalette.DARK_ACCENT if is_dark else ColorPalette.LIGHT_ACCENT
-    accent_hover = ColorPalette.DARK_ACCENT_HOVER if is_dark else ColorPalette.LIGHT_ACCENT_HOVER
-    danger = ColorPalette.DARK_DANGER if is_dark else ColorPalette.LIGHT_DANGER
-    success = ColorPalette.DARK_SUCCESS if is_dark else ColorPalette.LIGHT_SUCCESS
-    warning = ColorPalette.DARK_WARNING if is_dark else ColorPalette.LIGHT_WARNING
-    star_color = ColorPalette.DARK_STAR if is_dark else ColorPalette.LIGHT_STAR
+    # Typography: system UI font stack with Noto Sans as a known-available fallback
+    FONT_UI = '"Noto Sans", "Segoe UI", Roboto, Ubuntu, Cantarell, sans-serif'
+    FONT_MONO = '"Noto Sans Mono", "Cascadia Code", "Consolas", monospace'
 
     return f"""
-    /* Global Application Styles */
-    QMainWindow, QWidget#centralWidget {{
-        background-color: {bg};
-        color: {text};
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
-        font-size: 13px;
-    }}
+/* ===================================================================
+   GLOBAL RESETS & BASE
+=================================================================== */
+QWidget {{
+    font-family: {FONT_UI};
+    font-size: 13px;
+    color: {D.TEXT};
+    background-color: transparent;
+    outline: none;
+}}
 
-    QWidget {{
-        color: {text};
-    }}
+QMainWindow, QDialog {{
+    background-color: {D.BG};
+}}
 
-    /* Header Bar */
-    QFrame#headerFrame {{
-        background-color: {surface};
-        border-bottom: 1px solid {border};
-        padding: 6px 12px;
-    }}
+/* ===================================================================
+   SIDEBAR NAVIGATION
+=================================================================== */
+QWidget#sidebarWidget {{
+    background-color: {D.SURFACE};
+    border-right: 1px solid {D.BORDER};
+    min-width: 200px;
+    max-width: 220px;
+}}
 
-    QLabel#appTitle {{
-        font-size: 16px;
-        font-weight: 700;
-        color: {accent};
-    }}
+QLabel#appLogoLabel {{
+    font-size: 18px;
+    font-weight: 700;
+    color: {D.PRIMARY};
+    padding: 18px 16px 10px 16px;
+    letter-spacing: 0.4px;
+}}
 
-    /* Buttons */
-    QPushButton {{
-        background-color: {surface};
-        color: {text};
-        border: 1px solid {border};
-        border-radius: 6px;
-        padding: 6px 12px;
-        font-weight: 500;
-    }}
+QPushButton.navButton {{
+    background-color: transparent;
+    color: {D.TEXT_SECONDARY};
+    border: none;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 500;
+    margin: 2px 8px;
+}}
 
-    QPushButton:hover {{
-        background-color: {surface_hover};
-        border-color: {accent};
-    }}
+QPushButton.navButton:hover {{
+    background-color: {D.SURFACE_HOVER};
+    color: {D.TEXT};
+}}
 
-    QPushButton:pressed {{
-        background-color: {surface_active};
-    }}
+QPushButton.navButton[active="true"] {{
+    background-color: {D.PRIMARY_CONTAINER};
+    color: {D.PRIMARY};
+    font-weight: 600;
+}}
 
-    QPushButton#accentButton {{
-        background-color: {accent};
-        color: {("#11111b" if is_dark else "#ffffff")};
-        border: none;
-        font-weight: 600;
-    }}
+/* Sidebar bottom buttons */
+QPushButton#themeToggleBtn {{
+    background-color: transparent;
+    color: {D.TEXT_SECONDARY};
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    text-align: left;
+    font-size: 12px;
+    margin: 2px 8px;
+}}
 
-    QPushButton#accentButton:hover {{
-        background-color: {accent_hover};
-    }}
+QPushButton#themeToggleBtn:hover {{
+    background-color: {D.SURFACE_HOVER};
+    color: {D.TEXT};
+}}
 
-    QPushButton#dangerButton {{
-        background-color: transparent;
-        color: {danger};
-        border: 1px solid {danger};
-    }}
+/* ===================================================================
+   CONTENT AREA
+=================================================================== */
+QWidget#contentStack {{
+    background-color: {D.BG};
+}}
 
-    QPushButton#dangerButton:hover {{
-        background-color: {danger};
-        color: #ffffff;
-    }}
+QScrollArea {{
+    background-color: transparent;
+    border: none;
+}}
 
-    QPushButton#iconButton {{
-        background-color: transparent;
-        border: none;
-        padding: 4px;
-        border-radius: 4px;
-    }}
+QScrollArea > QWidget > QWidget {{
+    background-color: transparent;
+}}
 
-    QPushButton#iconButton:hover {{
-        background-color: {surface_hover};
-    }}
+/* ===================================================================
+   TASK CARDS — FLOATING ELEVATION
+=================================================================== */
+QFrame#taskCard {{
+    background-color: {D.SURFACE};
+    border-radius: 12px;
+    border: none;
+    margin: 4px 12px;
+    padding: 2px;
+}}
 
-    QPushButton#starButton {{
-        background-color: transparent;
-        border: none;
-        font-size: 16px;
-        color: {text_muted};
-    }}
+QFrame#taskCard:hover {{
+    background-color: {D.SURFACE_HOVER};
+}}
 
-    QPushButton#starButton[starred="true"] {{
-        color: {star_color};
-    }}
+QFrame#subtaskCard {{
+    background-color: {D.SURFACE_VAR};
+    border-radius: 8px;
+    border: none;
+    margin: 3px 0 3px 24px;
+}}
 
-    /* Navigation Tabs */
-    QTabWidget::pane {{
-        border: none;
-        background: {bg};
-    }}
+QFrame#subtaskCard:hover {{
+    background-color: {D.SURFACE_HOVER};
+}}
 
-    QTabBar::tab {{
-        background: transparent;
-        color: {text_muted};
-        padding: 8px 16px;
-        margin-right: 4px;
-        border-bottom: 2px solid transparent;
-        font-weight: 500;
-    }}
+/* ===================================================================
+   TASK QUICK-ADD BAR
+=================================================================== */
+QFrame#addTaskBar {{
+    background-color: {D.SURFACE};
+    border-radius: 12px;
+    border: none;
+    margin: 8px 12px 4px 12px;
+    padding: 4px;
+}}
 
-    QTabBar::tab:hover {{
-        color: {text};
-        background: {surface_hover};
-        border-radius: 4px 4px 0 0;
-    }}
+/* ===================================================================
+   BUTTONS
+=================================================================== */
+/* Contained (Primary) Button */
+QPushButton#primaryBtn {{
+    background-color: {D.PRIMARY};
+    color: {"#101212" if theme == "dark" else "#FFFFFF"};
+    border: none;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 600;
+    font-size: 13px;
+}}
 
-    QTabBar::tab:selected {{
-        color: {accent};
-        border-bottom: 2px solid {accent};
-        font-weight: 600;
-    }}
+QPushButton#primaryBtn:hover {{
+    background-color: {"#96E8B8" if theme == "dark" else "#00E676"};
+}}
 
-    QTabBar::close-button {{
-        image: none;
-        subcontrol-position: right;
-        margin-left: 6px;
-    }}
+QPushButton#primaryBtn:pressed {{
+    background-color: {"#6DCFA0" if theme == "dark" else "#00BF4A"};
+}}
 
-    /* Input Fields */
-    QLineEdit, QTextEdit, QPlainTextEdit, QDateTimeEdit, QDateEdit, QTimeEdit, QComboBox {{
-        background-color: {surface};
-        color: {text};
-        border: 1px solid {border};
-        border-radius: 6px;
-        padding: 6px 10px;
-        selection-background-color: {accent};
-        selection-color: #ffffff;
-    }}
+/* Outlined Button */
+QPushButton {{
+    background-color: transparent;
+    color: {D.TEXT};
+    border: 1px solid {D.BORDER};
+    border-radius: 8px;
+    padding: 6px 14px;
+    font-weight: 500;
+}}
 
-    QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus, QDateTimeEdit:focus, QComboBox:focus {{
-        border: 1.5px solid {accent};
-    }}
+QPushButton:hover {{
+    background-color: {D.SURFACE_HOVER};
+    border-color: {D.PRIMARY};
+    color: {D.PRIMARY};
+}}
 
-    /* Task Card Container */
-    QFrame.taskCard {{
-        background-color: {surface};
-        border: 1px solid {border};
-        border-radius: 8px;
-        padding: 10px 14px;
-        margin-bottom: 6px;
-    }}
+QPushButton:pressed {{
+    background-color: {D.SURFACE_ACTIVE};
+}}
 
-    QFrame.taskCard:hover {{
-        border-color: {accent};
-    }}
+/* Icon-only ghost buttons */
+QPushButton#iconBtn {{
+    background-color: transparent;
+    border: none;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 15px;
+    color: {D.TEXT_SECONDARY};
+}}
 
-    QFrame.subtaskCard {{
-        background-color: {surface_hover};
-        border: 1px solid {border};
-        border-radius: 6px;
-        padding: 6px 10px;
-        margin: 2px 0 2px 18px;
-    }}
+QPushButton#iconBtn:hover {{
+    background-color: {D.SURFACE_HOVER};
+    color: {D.TEXT};
+}}
 
-    /* Checkboxes */
-    QCheckBox {{
-        spacing: 8px;
-        color: {text};
-        font-size: 13px;
-    }}
+/* Star Button */
+QPushButton#starBtn {{
+    background-color: transparent;
+    border: none;
+    padding: 3px;
+    font-size: 17px;
+    color: {D.TEXT_SECONDARY};
+    border-radius: 5px;
+}}
 
-    QCheckBox::indicator {{
-        width: 18px;
-        height: 18px;
-        border: 2px solid {border};
-        border-radius: 9px;
-        background-color: {surface};
-    }}
+QPushButton#starBtn[starred="true"] {{
+    color: {D.STAR};
+}}
 
-    QCheckBox::indicator:hover {{
-        border-color: {accent};
-    }}
+QPushButton#starBtn:hover {{
+    background-color: {D.SURFACE_HOVER};
+}}
 
-    QCheckBox::indicator:checked {{
-        background-color: {accent};
-        border-color: {accent};
-        image: none;
-    }}
+/* Danger / destructive */
+QPushButton#dangerBtn {{
+    background-color: transparent;
+    color: {D.DANGER};
+    border: 1px solid {D.DANGER};
+    border-radius: 8px;
+    padding: 6px 14px;
+}}
 
-    /* Scrollbars */
-    QScrollBar:vertical {{
-        background: transparent;
-        width: 8px;
-        margin: 0px;
-    }}
+QPushButton#dangerBtn:hover {{
+    background-color: {D.DANGER};
+    color: {"#101212" if theme == "dark" else "#FFFFFF"};
+}}
 
-    QScrollBar::handle:vertical {{
-        background: {border};
-        border-radius: 4px;
-        min-height: 24px;
-    }}
+/* ===================================================================
+   INPUTS & TEXT FIELDS
+=================================================================== */
+QLineEdit, QTextEdit, QPlainTextEdit {{
+    background-color: {D.SURFACE_VAR};
+    color: {D.TEXT};
+    border: none;
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 13px;
+    selection-background-color: {D.PRIMARY};
+    selection-color: {"#101212" if theme == "dark" else "#FFFFFF"};
+}}
 
-    QScrollBar::handle:vertical:hover {{
-        background: {text_muted};
-    }}
+QLineEdit:focus, QTextEdit:focus, QPlainTextEdit:focus {{
+    border-bottom: 2px solid {D.PRIMARY};
+    border-radius: 6px 6px 0 0;
+}}
 
-    QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
-        height: 0px;
-    }}
+QPlainTextEdit {{
+    font-family: {FONT_MONO};
+    font-size: 12px;
+    line-height: 1.5;
+}}
 
-    QScrollBar:horizontal {{
-        background: transparent;
-        height: 8px;
-        margin: 0px;
-    }}
+/* Date and Time Pickers */
+QDateEdit, QTimeEdit, QDateTimeEdit {{
+    background-color: {D.SURFACE_VAR};
+    color: {D.TEXT};
+    border: 1px solid {D.BORDER};
+    border-radius: 6px;
+    padding: 6px 10px;
+    font-size: 13px;
+    min-height: 20px;
+}}
 
-    QScrollBar::handle:horizontal {{
-        background: {border};
-        border-radius: 4px;
-        min-width: 24px;
-    }}
+QDateEdit:focus, QTimeEdit:focus {{
+    border-color: {D.PRIMARY};
+}}
 
-    QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
-        width: 0px;
-    }}
+QDateEdit::drop-down, QTimeEdit::drop-down, QDateTimeEdit::drop-down {{
+    subcontrol-origin: padding;
+    subcontrol-position: top right;
+    width: 24px;
+    border-left: 1px solid {D.BORDER};
+    border-top-right-radius: 6px;
+    border-bottom-right-radius: 6px;
+}}
 
-    /* Badges & Labels */
-    QLabel#badgeOverdue {{
-        background-color: {danger};
-        color: #ffffff;
-        border-radius: 4px;
-        padding: 2px 6px;
-        font-size: 11px;
-        font-weight: bold;
-    }}
+QDateEdit::drop-down:hover, QTimeEdit::drop-down:hover {{
+    background-color: {D.SURFACE_HOVER};
+}}
 
-    QLabel#badgeToday {{
-        background-color: {warning};
-        color: #11111b;
-        border-radius: 4px;
-        padding: 2px 6px;
-        font-size: 11px;
-        font-weight: bold;
-    }}
+QCalendarWidget {{
+    background-color: {D.SURFACE};
+    color: {D.TEXT};
+    border: 1px solid {D.BORDER};
+    border-radius: 8px;
+}}
 
-    QLabel#badgeUpcoming {{
-        background-color: {border};
-        color: {text_muted};
-        border-radius: 4px;
-        padding: 2px 6px;
-        font-size: 11px;
-    }}
+QCalendarWidget QWidget#qt_calendar_navigationbar {{
+    background-color: {D.SURFACE_VAR};
+    padding: 4px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
+}}
 
-    QLabel#mutedText {{
-        color: {text_muted};
-        font-size: 12px;
-    }}
+QCalendarWidget QAbstractItemView:enabled {{
+    background-color: {D.SURFACE};
+    color: {D.TEXT};
+    selection-background-color: {D.PRIMARY};
+    selection-color: {"#101212" if theme == "dark" else "#FFFFFF"};
+}}
 
-    /* Status Bar */
-    QStatusBar {{
-        background-color: {surface};
-        color: {text_muted};
-        border-top: 1px solid {border};
-        font-size: 11px;
-    }}
+QCalendarWidget QToolButton {{
+    background-color: transparent;
+    color: {D.TEXT};
+    border-radius: 4px;
+    padding: 4px 8px;
+    font-weight: bold;
+}}
 
-    /* Menus & Dialogs */
-    QMenu {{
-        background-color: {surface};
-        color: {text};
-        border: 1px solid {border};
-        border-radius: 6px;
-        padding: 4px 0px;
-    }}
+QCalendarWidget QToolButton:hover {{
+    background-color: {D.SURFACE_HOVER};
+}}
 
-    QMenu::item {{
-        padding: 6px 24px 6px 12px;
-    }}
+QCalendarWidget QMenu {{
+    width: 120px;
+    left: 20px;
+    color: {D.TEXT};
+    background-color: {D.SURFACE};
+}}
 
-    QMenu::item:selected {{
-        background-color: {accent};
-        color: #ffffff;
-    }}
+QCalendarWidget QSpinBox {{
+    width: 50px;
+    font-size: 13px;
+    color: {D.TEXT};
+    background-color: {D.SURFACE_VAR};
+    selection-background-color: {D.PRIMARY};
+    selection-color: {"#101212" if theme == "dark" else "#FFFFFF"};
+}}
 
-    QMessageBox, QDialog {{
-        background-color: {bg};
-        color: {text};
-    }}
-    """
+/* ===================================================================
+   CHECKBOXES
+=================================================================== */
+QCheckBox {{
+    spacing: 8px;
+    color: {D.TEXT};
+    font-size: 13px;
+}}
+
+QCheckBox::indicator {{
+    width: 20px;
+    height: 20px;
+    border-radius: 10px;
+    border: 2px solid {D.BORDER};
+    background-color: transparent;
+}}
+
+QCheckBox::indicator:hover {{
+    border-color: {D.PRIMARY};
+    background-color: {D.SURFACE_HOVER};
+}}
+
+QCheckBox::indicator:checked {{
+    background-color: {D.PRIMARY};
+    border-color: {D.PRIMARY};
+}}
+
+/* ===================================================================
+   SCROLLBARS — Ultra-Minimal
+=================================================================== */
+QScrollBar:vertical {{
+    background: transparent;
+    width: 6px;
+    margin: 0;
+    border-radius: 3px;
+}}
+
+QScrollBar::handle:vertical {{
+    background: {D.BORDER};
+    border-radius: 3px;
+    min-height: 32px;
+}}
+
+QScrollBar::handle:vertical:hover {{
+    background: {D.TEXT_SECONDARY};
+}}
+
+QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{
+    height: 0;
+}}
+
+QScrollBar:horizontal {{
+    background: transparent;
+    height: 6px;
+    margin: 0;
+    border-radius: 3px;
+}}
+
+QScrollBar::handle:horizontal {{
+    background: {D.BORDER};
+    border-radius: 3px;
+    min-width: 32px;
+}}
+
+QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal {{
+    width: 0;
+}}
+
+/* ===================================================================
+   NOTES MULTI-TAB
+=================================================================== */
+QTabWidget#notesTabWidget::pane {{
+    background: {D.BG};
+    border: none;
+}}
+
+QTabBar#notesTabBar::tab {{
+    background: transparent;
+    color: {D.TEXT_SECONDARY};
+    padding: 7px 16px;
+    border-radius: 8px 8px 0 0;
+    margin-right: 2px;
+    font-size: 12px;
+    font-weight: 500;
+    border-bottom: 2px solid transparent;
+}}
+
+QTabBar#notesTabBar::tab:hover {{
+    color: {D.TEXT};
+    background: {D.SURFACE_HOVER};
+}}
+
+QTabBar#notesTabBar::tab:selected {{
+    color: {D.PRIMARY};
+    background: {D.PRIMARY_CONTAINER};
+    border-bottom: 2px solid {D.PRIMARY};
+    font-weight: 600;
+}}
+
+/* ===================================================================
+   BADGES & LABELS
+=================================================================== */
+QLabel#badgeOverdue {{
+    background-color: {D.DANGER};
+    color: {"#101212" if theme == "dark" else "#FFFFFF"};
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+}}
+
+QLabel#badgeToday {{
+    background-color: {D.WARNING};
+    color: #101212;
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 10px;
+    font-weight: 700;
+}}
+
+QLabel#badgeUpcoming {{
+    background-color: {D.SURFACE_VAR};
+    color: {D.TEXT_SECONDARY};
+    border-radius: 5px;
+    padding: 2px 7px;
+    font-size: 10px;
+}}
+
+QLabel#mutedLabel {{
+    color: {D.TEXT_SECONDARY};
+    font-size: 11px;
+}}
+
+QLabel#sectionHeader {{
+    color: {D.TEXT_SECONDARY};
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}}
+
+QLabel#taskTitle {{
+    color: {D.TEXT};
+    font-size: 13px;
+    font-weight: 500;
+}}
+
+QLabel#taskTitleDone {{
+    color: {D.TEXT_SECONDARY};
+    font-size: 13px;
+    font-weight: 400;
+}}
+
+/* ===================================================================
+   STATUS BAR (Notes)
+=================================================================== */
+QLabel#statusLabel {{
+    color: {D.TEXT_SECONDARY};
+    font-size: 11px;
+    padding: 2px 6px;
+}}
+
+QFrame#statusBar {{
+    background-color: {D.SURFACE};
+    border-top: 1px solid {D.BORDER};
+}}
+
+/* ===================================================================
+   DIALOGS & MENUS
+=================================================================== */
+QDialog {{
+    background-color: {D.SURFACE};
+    border-radius: 12px;
+}}
+
+QMessageBox {{
+    background-color: {D.SURFACE};
+}}
+
+QMenu {{
+    background-color: {D.SURFACE};
+    color: {D.TEXT};
+    border: 1px solid {D.BORDER};
+    border-radius: 10px;
+    padding: 6px 4px;
+}}
+
+QMenu::item {{
+    padding: 7px 24px 7px 14px;
+    border-radius: 6px;
+    margin: 1px 4px;
+}}
+
+QMenu::item:selected {{
+    background-color: {D.PRIMARY_CONTAINER};
+    color: {D.PRIMARY};
+}}
+
+QMenu::separator {{
+    height: 1px;
+    background-color: {D.BORDER};
+    margin: 4px 10px;
+}}
+
+/* ===================================================================
+   SEPARATOR LINES
+=================================================================== */
+QFrame#hSeparator {{
+    background-color: {D.BORDER};
+    max-height: 1px;
+    border: none;
+}}
+
+QFrame#vSeparator {{
+    background-color: {D.BORDER};
+    max-width: 1px;
+    border: none;
+}}
+
+/* ===================================================================
+   DIALOG BUTTON BOX
+=================================================================== */
+QDialogButtonBox QPushButton {{
+    min-width: 80px;
+}}
+"""

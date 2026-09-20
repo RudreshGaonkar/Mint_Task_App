@@ -19,6 +19,14 @@ __pycache__/
 *.sqlite3
 *.sqlite
 
+# Distribution / Packaging Build Dirs
+build/
+dist/
+deb_dist/
+*.egg-info/
+.eggs/
+*.deb
+
 # IDE, OS, and Scratch Configs
 .vscode/
 .idea/
@@ -33,6 +41,7 @@ __pycache__/
 !requirements.txt
 !install.sh
 !uninstall.sh
+!build_deb.sh
 !mint_tasks.desktop
 !README.md
 !Project_Spec.md
