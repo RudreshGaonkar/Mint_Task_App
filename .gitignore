@@ -1,0 +1,42 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# SQLite Database & Journal Runtime Files
+*.db
+*.db-wal
+*.db-shm
+*.sqlite3
+*.sqlite
+
+# Distribution / Packaging
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE, Editor & OS Scratch Files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+.directory
+
+# Testing & Cache
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/

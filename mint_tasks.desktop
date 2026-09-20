@@ -1,0 +1,8 @@
+[Desktop Entry]
+Name=Mint Tasks
+Comment=Minimalist Tasks & Notes for Linux Mint
+Exec=sh -c '"$HOME/.local/share/mint_tasks/venv/bin/python3" "$HOME/.local/share/mint_tasks/app/main.py"'
+Icon=/home/rudresh/.local/share/mint_tasks/app/mint_tasks_icon.svg
+Terminal=false
+Type=Application
+Categories=Utility;Office;
