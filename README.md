@@ -1,79 +1,78 @@
-# 🌿 Mint Tasks: Lightweight Linux To-Do & Multi-Tab Notepad App
+<div align="center">
+  <img src="mint_tasks_icon.svg" alt="Mint Tasks Logo" width="80" height="80" />
+  <h1>Mint Tasks</h1>
+  <p><strong>Ultra-fast, native Google Tasks alternative and tabbed scratchpad, built for privacy and performance on Linux Mint, Ubuntu, and Debian.</strong></p>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
-[![Platform: Linux](https://img.shields.io/badge/Platform-Linux%20Mint%20%7C%20Ubuntu%20%7C%20Debian-green.svg)](https://linuxmint.com)
-[![Toolkit: PyQt6](https://img.shields.io/badge/GUI-PyQt6-41CD52.svg)](https://riverbankcomputing.com/software/pyqt/)
-[![RAM: 35MB-65MB](https://img.shields.io/badge/Memory-35--65%20MB%20RAM-brightgreen.svg)]()
-[![Privacy: 100% Local](https://img.shields.io/badge/Privacy-100%25%20Local%20SQLite-purple.svg)]()
-
-> **The ultra-fast, native Google Tasks alternative and tabbed scratchpad built specifically for Linux Mint, Ubuntu, Debian, and all modern Linux desktops (Cinnamon, XFCE, MATE, GNOME, KDE).**
+  <p>
+    <a href="https://linuxmint.com"><img src="https://img.shields.io/badge/Platform-Linux%20Mint%20%7C%20Ubuntu%20%7C%20Debian-green.svg" alt="Platform" /></a>
+    <a href="https://riverbankcomputing.com/software/pyqt/"><img src="https://img.shields.io/badge/GUI-PyQt6-41CD52.svg" alt="Toolkit: PyQt6" /></a>
+    <img src="https://img.shields.io/badge/RAM-35--65%20MB-brightgreen.svg" alt="RAM: 35-65MB" />
+    <img src="https://img.shields.io/badge/Privacy-100%25%20Local%20SQLite-purple.svg" alt="100% Local Privacy" />
+  </p>
+</div>
 
 ---
 
-## ⚡ Why Mint Tasks?
+## ⚡ Overview
 
-Modern productivity apps are weighed down by bloated Electron/Chromium runtimes consuming hundreds of megabytes of RAM and sending telemetry to cloud servers. **Mint Tasks** is engineered from scratch as a native, lightweight, and privacy-first desktop utility with an ultra-low footprint (**35 MB – 65 MB RAM**).
+**Mint Tasks** is a lightweight, privacy-focused native desktop productivity app designed specifically for Linux desktop environments (Cinnamon, XFCE, MATE, GNOME, KDE). 
 
-It pairs the intuitive simplicity of **Google Tasks** with the versatility of a **Windows 11-style tabbed scratchpad/notepad**.
+Combining the minimalist workflow of **Google Tasks** with a modern **Windows 11-style multi-tab scratchpad/notepad**, Mint Tasks eliminates the bloat of Electron runtimes while delivering native C++ Qt rendering, 30-second background reminder alerts, and strict POSIX file permissions.
 
 ---
 
 ## ✨ Key Features
 
-### 📋 1. Google Tasks-Inspired Task Manager
-- **Minimalist Aesthetics**: Clean card layout, subtle borders, and fluid strike-through animations.
-- **Hierarchical Subtasks**: Create and manage collapsible subtasks nested under parent tasks with independent completion tracking.
-- **Scheduled Alerts & Desktop Notifications**: Integrated date & time pickers with a background daemon checking due tasks and triggering native `notify-send` alerts and non-intrusive sound cues.
-- **Starred & Priority Sorting**: Pin crucial tasks to the top with one-click star prioritization.
-- **Completed History & Restoration**: Archive completed tasks grouped by date, with one-click restore back to active status.
-
-### 📝 2. Windows 11-Style Multi-Tab Notes & Scratchpad
-- **Tabbed Document Workspace**: Open multiple notes simultaneously with keyboard shortcuts (`Ctrl+N` for new tab, `Ctrl+W` to close tab).
-- **Format Agnostic**: Seamlessly open, edit, and save any plain text file supported on Linux (`.txt`, `.md`, `.py`, `.sh`, `.json`, `.yaml`, `.csv`, `.log`, or extensionless).
-- **Unsaved Changes Protection**: Visual modified indicator (`*`) in tab headers and intelligent confirmation prompts before closing tabs or exiting.
-- **Real-Time Editor Stats**: Clean status bar showing current line/column (`Ln X, Col Y`), word count, character count, and UTF-8 encoding.
-
-### 🔒 3. Hardened Security & 100% Local Privacy
-- **No Cloud, No Telemetry**: All data remains strictly on your machine in a local SQLite database configured with Write-Ahead Logging (`WAL` mode).
-- **Strict POSIX Permissions**: Database files are locked down with `0600` (`rw-------`) and data directories with `0700` (`rwx------`), isolating your tasks from other users on multi-user systems.
-- **True Hard Purge**: "Delete Permanently" immediately executes SQL `DELETE` queries to scrub data rather than applying soft flags.
-- **Least Privilege Execution**: Operates entirely in standard user space—**no `sudo` required**.
-
-### 🎨 4. Adaptive Dark & Light Themes
-- **Google Tasks-Style Clean Theme Engine**: Built-in Dark Mode (`#1e1e2e` Catppuccin-inspired) and Light Mode (`#f8f9fa` crisp minimalist).
-- **System Tray Integration**: Quietly minimizes to the system tray (`QSystemTrayIcon`) to keep reminder alerts running in the background without cluttering your panel.
-- **Fully Responsive**: Adapts seamlessly from compact 380px panels to 4K widescreen displays.
+- **🚀 Ultra-Low Resource Footprint (35 MB – 65 MB RAM)**: Pure Python 3 and native PyQt6 bindings. No Chromium, No Electron, No memory bloat.
+- **📋 Google Tasks Simplicity & Parity**:
+  - Top-level tasks and collapsible nested subtasks with independent completion states.
+  - Starred priority sorting and quick-add bar.
+  - Due date & time picker (`QDateTimeEdit`) with color-coded badges (Overdue, Today, Upcoming).
+- **🔔 Native Desktop Alerts & Reminders**:
+  - Background daemon checks due tasks every 30 seconds.
+  - Dispatches non-intrusive desktop notifications via `notify-send` / DBus and system audio alerts.
+- **📝 Multi-Tab Notes Editor (Win11 Notepad Style)**:
+  - Dynamic tabs with `Ctrl+N` (New Tab), `Ctrl+W` (Close Tab), `Ctrl+S` (Save), `Ctrl+Shift+S` (Save As), and `Ctrl+O` (Open).
+  - Format-agnostic editing (`.txt`, `.md`, `.py`, `.sh`, `.json`, `.yaml`, `.csv`, `.log`, or extensionless).
+  - Unsaved modifications indicator (`*`) and safe exit confirmations.
+  - Live status bar tracking Line/Col position, word count, character count, and UTF-8 encoding.
+- **🔒 True Hard Purge & Local SQLite Privacy**:
+  - 100% offline local SQLite storage with Write-Ahead Logging (`WAL` mode).
+  - Strict POSIX permissions: `0700` (`rwx------`) on directories and `0600` (`rw-------`) on database files.
+  - **Permanent Hard Purge**: "Delete Permanently" directly executes SQL `DELETE` queries.
+  - **Factory Reset**: Instant one-click wipe restoring pristine out-of-the-box state.
+- **🎨 Minimalist Dark & Light Themes**: Catppuccin-inspired dark theme and clean light theme with System Tray integration (`QSystemTrayIcon`).
 
 ---
 
-## 🚀 Quick Start & Installation
+## 🚀 Installation
 
-Install **Mint Tasks** locally for your current user in seconds.
+Mint Tasks installs in standard user space without requiring `sudo` privileges.
 
-### Step 1: Clone Repository
+### 1. Clone the Repository
 ```bash
-git clone https://github.com/your-username/mint-tasks.git
-cd mint-tasks
+git clone https://github.com/RudreshGaonkar/Mint_Task_App.git
+cd Mint_Task_App
 ```
 
-### Step 2: Run User Installer (No `sudo` needed)
+### 2. Run the Setup Script
 ```bash
 chmod +x install.sh
 ./install.sh
 ```
 
 The installer will:
-1. Initialize secure storage at `~/.local/share/mint_tasks/`.
-2. Set up an isolated Python virtual environment with `PyQt6`.
-3. Install high-resolution application icons and the `.desktop` launcher.
-4. Add **Mint Tasks** directly to your Linux Mint / desktop Application Menu under **Accessories / Office / Utilities**.
+1. Create secure directories in `~/.local/share/mint_tasks/` with `0700` permissions.
+2. Initialize an isolated virtual environment and install dependencies.
+3. Install high-resolution vector icons to `~/.local/share/icons/hicolor/scalable/apps/`.
+4. Register the `.desktop` launcher in `~/.local/share/applications/` so Mint Tasks appears immediately in your system Application Menu.
 
 ---
 
 ## 🔧 Troubleshooting & Prerequisites
 
-### Missing `python3-venv` on Debian / Ubuntu / Linux Mint
-If the installer reports that `ensurepip` or `venv` is missing, install standard Python venv support:
+### Missing `python3-venv`
+On Ubuntu / Debian / Linux Mint minimal installations, ensure Python virtual environment tools are installed:
 
 ```bash
 sudo apt update
@@ -81,20 +80,11 @@ sudo apt install python3-venv python3-pip
 ```
 Then rerun `./install.sh`.
 
-### Running Directly in Development Mode
-You can also launch Mint Tasks directly from your local terminal:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-python3 main.py
-```
-
 ---
 
-## 🗑️ Complete Uninstallation & Data Purge
+## 🗑️ Uninstallation
 
-To completely wipe Mint Tasks, all stored databases, configurations, cache, desktop shortcuts, and icons:
+To completely remove Mint Tasks and permanently purge all SQLite databases, configuration files, cache, and desktop entries:
 
 ```bash
 chmod +x uninstall.sh
@@ -103,18 +93,12 @@ chmod +x uninstall.sh
 
 ---
 
-## 📁 Storage Architecture (XDG Base Directory Compliance)
+## 📁 Storage Architecture (XDG Compliance)
 
-| Path | Description | Permissions |
+| Location | Purpose | Permissions |
 | :--- | :--- | :--- |
-| `~/.local/share/mint_tasks/tasks.db` | Local SQLite task & subtask database (WAL mode) | `0600` |
-| `~/.config/mint_tasks/config.json` | Theme and user preference configuration | `0600` |
-| `~/.cache/mint_tasks/` | Cache directory | `0700` |
-| `~/.local/share/applications/mint_tasks.desktop` | Application menu launcher | User |
-| `~/.local/share/icons/hicolor/scalable/apps/mint-tasks.svg` | Desktop vector icon | User |
-
----
-
-## 📄 License
-
-Distributed under the **MIT License**. Free and open-source for personal and professional use.
+| `~/.local/share/mint_tasks/tasks.db` | SQLite Database (`WAL` mode) | `0600` |
+| `~/.config/mint_tasks/config.json` | Theme and Application Preferences | `0600` |
+| `~/.cache/mint_tasks/` | Cache and Temporary Data | `0700` |
+| `~/.local/share/applications/mint_tasks.desktop` | Desktop Entry Launcher | User |
+| `~/.local/share/icons/hicolor/scalable/apps/mint-tasks.svg` | Scalable Vector Icon | User |

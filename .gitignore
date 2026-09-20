@@ -1,42 +1,38 @@
-# Byte-compiled / optimized / DLL files
+# Virtual Environments
+venv/
+env/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Python Bytecode and Caches
 __pycache__/
 *.py[cod]
 *$py.class
 *.so
 
-# Virtual Environments
-.venv/
-venv/
-env/
-ENV/
-env.bak/
-venv.bak/
-
-# SQLite Database & Journal Runtime Files
+# SQLite Runtime and Journal Files
 *.db
 *.db-wal
 *.db-shm
 *.sqlite3
 *.sqlite
 
-# Distribution / Packaging
-build/
-dist/
-*.egg-info/
-.eggs/
-
-# IDE, Editor & OS Scratch Files
-.idea/
+# IDE, OS, and Scratch Configs
 .vscode/
+.idea/
 *.swp
 *.swo
 *~
 .DS_Store
 .directory
 
-# Testing & Cache
-.pytest_cache/
-.coverage
-htmlcov/
-.mypy_cache/
-.ruff_cache/
+# Explicitly Allow Tracked Files
+!mint_tasks_icon.svg
+!requirements.txt
+!install.sh
+!uninstall.sh
+!mint_tasks.desktop
+!README.md
+!Project_Spec.md
